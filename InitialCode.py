@@ -21,5 +21,3 @@ for i in range(0,5) :
 #print(pixel.size)
 #imshow(float(img))
 
-
-#We are stuck here. We get the values located at each pixel insde the datacube. What has to be done with these values?

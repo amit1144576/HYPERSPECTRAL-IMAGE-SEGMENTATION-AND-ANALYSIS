@@ -1,156 +1,182 @@
-import spectral.io.envi as envi
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
+import spectral.io.envi as envi
+import pandas as pd
 
-"""
-Reading hyperspectral SWIR type images data, exporting 2D-images and optionally excel file of the data
-and Segmentation of grains
-"""
-# this class is for later use to make the code object oriented
-class SWIRSegmentation:
-    def __init__(self, name, sourcefile):
-        self.name = name
-        self.sourcefile = sourcefile
-
-
-SWIRFileSource = "../SegmentedImages/SourceFolder/problematic.txt"
+SWIRFileSource = "../../SegmentedImages/SourceFolder/SWIR.txt"
 imageType = "SWIR"
-SWIRFileSource = SWIRFileSource
-
 imagesArray = []
 with open(SWIRFileSource, "r") as listOfImages:
     for line in listOfImages:
         imagesArray.append(line.strip())
 
-for images in range(0, len(imagesArray)):
-
+for images in range(0, len(imagesArray)- len(imagesArray) + 2):
     imageIndex = images
-    imageDirectory = "/Users/ahmad/Downloads/HySacs/" + imageType + "/"
+    imageDirectory = "F:/SWIR/"
     imageName = imagesArray[imageIndex]
 
     # instantiating hyperspectral image object using spectral library
-    img = envi.open(imageDirectory + imageName + '.hdr',
-                    imageDirectory + imageName + '.img')
+    SWIRimage = envi.open(imageDirectory + imageName + '.hdr',
+                          imageDirectory + imageName + '.img')
 
-    # reading and instantiating variables of number of rows, columns and bands of the image
-    imgRows = img.nrows
-    imgColumns = img.ncols
-    imgBands = img.nbands
+    SWIRnumOfRows = SWIRimage.nrows
+    SWIRnumOfCols = SWIRimage.ncols
+    SWIRnumOfBands = SWIRimage.nbands
 
-    imgSpectrum = int(str(imgBands))
+    imgSpectrum = int(str(SWIRnumOfBands))
+    imgHeight = int(str(SWIRnumOfRows))
+    imgWidth = int(str(SWIRnumOfCols))
 
+    SWIRSegmentchannels = np.array([55, 41, 12])
+    SWIRSegmentMax1 = np.max(SWIRimage[:, :, int(SWIRSegmentchannels[0])])
+    SWIRSegmentMin1 = np.min(SWIRimage[:, :, int(SWIRSegmentchannels[0])])
+    SWIRSegmentMax2 = np.max(SWIRimage[:, :, int(SWIRSegmentchannels[1])])
+    SWIRSegmentMin2 = np.min(SWIRimage[:, :, int(SWIRSegmentchannels[1])])
+    SWIRSegmentMax3 = np.max(SWIRimage[:, :, int(SWIRSegmentchannels[2])])
+    SWIRSegmentMin3 = np.min(SWIRimage[:, :, int(SWIRSegmentchannels[2])])
 
-    """
-    making a comparision between first and last slices of spectrum and clearing points 
-    which has not significant difference
-    """
-    # first slice variants
-    firstSliceSpectrum = 1
-    firstSliceMax = np.max(img[:, :, firstSliceSpectrum])
-    firstSliceMin = np.min(img[:, :, firstSliceSpectrum])
-    # last slice variants
-    lastSliceSpectrum = imgSpectrum - 1
-    lastSliceMax = np.max(img[:, :, lastSliceSpectrum])
-    lastSliceMin = np.min(img[:, :, lastSliceSpectrum])
-    # non-significant difference in spectrum need to be neglected
-    # and make our processing time lower; spectrum values of grains
-    # has huge difference in relation to the background surface
-    differenceSpectrum = 30;
-    # instantiating each slice and a segmented image
-    firstSlice = np.zeros((imgRows, imgColumns))
-    lastSlice = np.zeros((imgRows, imgColumns))
-    segmented = np.zeros((imgRows, imgColumns))
-    # comparision of both slice and filling segmented array
-    sideBorder = 8
-
-    for r in range(0, imgRows):
+    SWIRSegmentslice1 = np.zeros((SWIRnumOfRows, SWIRnumOfCols))
+    SWIRSegmentslice2 = np.zeros((SWIRnumOfRows, SWIRnumOfCols))
+    SWIRSegmentslice3 = np.zeros((SWIRnumOfRows, SWIRnumOfCols))
+    for r in range(0, SWIRnumOfRows):
         if 630 > r > 420:
-            for c in range(0, imgColumns):
-                if imgColumns - sideBorder > c > sideBorder:
-                    firstSlice[r, c] = (img[r, c, firstSliceSpectrum] - firstSliceMin) / \
-                                       (firstSliceMax - firstSliceMin) * 256
-                    lastSlice[r, c] = (img[r, c, lastSliceSpectrum] - lastSliceMin) / \
-                                      (lastSliceMax - lastSliceMin) * 256
-                    if firstSlice[r, c] > lastSlice[r, c] + differenceSpectrum:
-                        segmented[r, c] = (img[r, c, firstSliceSpectrum] - firstSliceMin) / \
-                                          (firstSliceMax - firstSliceMin) * 256
-                    if firstSlice[r, c] < lastSlice[r, c] - differenceSpectrum:
-                        segmented[r, c] = (img[r, c, firstSliceSpectrum] - firstSliceMin) / \
-                                          (firstSliceMax - firstSliceMin) * 256
+            for c in range(0, SWIRnumOfCols):
+                SWIRSegmentslice1[r, c] = (SWIRimage[r, c, int(SWIRSegmentchannels[0])] - SWIRSegmentMin1) /\
+                                          (SWIRSegmentMax1 - SWIRSegmentMin1) * 255
+                SWIRSegmentslice2[r, c] = (SWIRimage[r, c, int(SWIRSegmentchannels[1])] - SWIRSegmentMin3) /\
+                                          (SWIRSegmentMax3 - SWIRSegmentMin3) * 255
+                SWIRSegmentslice3[r, c] = (SWIRimage[r, c, int(SWIRSegmentchannels[2])] - SWIRSegmentMin2) /\
+                                          (SWIRSegmentMax2 - SWIRSegmentMin2) * 255
 
-    # trying to remove the leaves
-    # density = 15
-    # for r in range(0, imgRows - density):
-    #     if 630 > r > 420:
-    #         for c in range(0, imgColumns - density):
-    #             count2 = 0
-    #             for x in range(0, density):
-    #                 if 130 > segmented[r + x, c + x] > 70:
-    #                     for y in range(0, density):
-    #                         count2 = count2 + 1  # segmented[r + x, c + x]
-    #
-    #             if count2 == density * density:
-    #                 for y in range(0, density):
-    #                     segmented[r + y, c + y] = 0
+    # ///////////////////////////////////////////////////// build RGB image ///////////////////////////////////////
+    SWIRSegmentimage = np.zeros([SWIRnumOfRows, SWIRnumOfCols, 3], dtype=np.uint8)
+    for r in range(0, SWIRnumOfRows):
+        if 630 > r > 420:
+            for c in range(0, SWIRnumOfCols):
+                SWIRSegmentimage[r, c] = [SWIRSegmentslice1[r, c], SWIRSegmentslice2[r, c], SWIRSegmentslice3[r, c]]
+    # cv2.imwrite("F:/SWIR/images/" + imageName + ".png", SWIRSegmentimage)
 
+    # ///////////////////////////////////////////////////// segment grains ///////////////////////////////////////
+
+    # nemo = cv2.imread("../../SegmentedImages/" + imageType + "/" + imageName + ".png")
+    SWIRSegmentedrgb = SWIRSegmentimage
+    # plt.imshow(segmentrgb)
+    # plt.show()
+    SWIRSegmented3d = cv2.cvtColor(SWIRSegmentedrgb, cv2.COLOR_BGR2RGB)
+    # plt.imshow(segmented3d)
+    # plt.show()
+    SWIRSegmenthsvcoverted = cv2.cvtColor(SWIRSegmented3d, cv2.COLOR_RGB2HSV)
+    SWIRSegment_lower_bounds = (0, 60, 50)
+    SWIRSegment_upper_bounds = (100, 255, 255)
+    SWIRSegmentmask = cv2.inRange(SWIRSegmenthsvcoverted, SWIRSegment_lower_bounds, SWIRSegment_upper_bounds)
+    SWIRSegmentresult = cv2.bitwise_and(SWIRSegmented3d, SWIRSegmented3d, mask=SWIRSegmentmask)
+    # plt.subplot(1, 2, 1)
+    # plt.imshow(mask, cmap="gray")
+    # plt.subplot(1, 2, 2)
+    # plt.imshow(result)
+    # plt.show()
+    SWIRSegmentresult = cv2.cvtColor(SWIRSegmentresult, cv2.COLOR_BGR2RGB)
+    # cv2.imwrite("../../SegmentedImages/" + imageType + "/" + imageName + ".png", result)
+
+    SWIRSegmented = np.zeros((SWIRnumOfRows, SWIRnumOfCols))
+    for r in range(0, SWIRnumOfRows):
+        if 630 > r > 420:
+            for c in range(0, SWIRnumOfCols):
+                if SWIRSegmentresult[r, c, 0] or SWIRSegmentresult[r, c, 1] or SWIRSegmentresult[r, c, 2]:
+                    SWIRSegmented[r, c] = SWIRSegmentresult[r, c, 2]
+
+    # ////////////////////////////////////////// quadratic transformation SWIR //////////////////////////////////
+    for r in range(0, SWIRnumOfRows):
+        if 630 > r > 420:
+            for c in range(0, SWIRnumOfCols):
+                if SWIRSegmented[r, c] > 0:
+                    SWIRSegmented[r, c] = SWIRSegmented[r, c] * SWIRSegmented[r, c]
+
+    SWIRSegmentedmaxValue = np.max(SWIRSegmented[:, :])
+    SWIRSegmentedminValue = np.min(SWIRSegmented[:, :])
+
+    for r in range(0, SWIRnumOfRows):
+        if 630 > r > 420:
+            for c in range(0, SWIRnumOfCols):
+                SWIRSegmented[r, c] = (SWIRSegmented[r, c] - SWIRSegmentedminValue) /\
+                                      (SWIRSegmentedmaxValue - SWIRSegmentedminValue) * 250
+
+    for r in range(0, SWIRnumOfRows):
+        if 630 > r > 420:
+            for c in range(0, SWIRnumOfCols):
+                if SWIRSegmented[r, c] < 30:
+                    SWIRSegmented[r, c] = 0
+
+    # ///////////////////////////////////////////////// db-scan based algorithm //////////////////////////////////
     """
-    applying DB-scan algorithm for segmentation purpose
+    applying DB-scan like algorithm for noise removal
     radius is based on Moore neighborhood
     """
-    def db_scan_CleanGrains(radius, minPoints):
-        labels = np.copy(segmented)
 
-        for r in range(0, imgRows):
-            for c in range(0, imgColumns):
-                if segmented[r, c] > 0:
+    def db_scan_CleanGrains(radius, minPoints):
+        labels = np.zeros((SWIRnumOfRows, SWIRnumOfCols))
+
+        for r in range(0, SWIRnumOfRows):
+            for c in range(0, SWIRnumOfCols):
+                if SWIRSegmented[r, c] > 0:
                     labels[r, c] = 1
 
-        for r in range(radius - 1, imgRows - radius):
-            for c in range(radius - 1, imgColumns - radius):
-                if 120 > segmented[r, c] > 0:
+        for r in range(radius - 1, SWIRnumOfRows - radius):
+            for c in range(radius - 1, SWIRnumOfCols - radius):
+                if SWIRSegmented[r, c] > 0:
                     numberOfNieghbors = 0
                     for radRow in range(r - radius + 1, r + radius):
                         for radCol in range(c - radius + 1, c + radius):
                             numberOfNieghbors = numberOfNieghbors + labels[radRow, radCol]
                     if numberOfNieghbors < minPoints:
-                        segmented[r, c] = 0
+                        SWIRSegmented[r, c] = 0
 
 
     # cleaning grains
-    radius = 6
+    radius = 5
     minPoints = 50
-    iterations = 3
+    iterations = 1
     for i in range(0, iterations):
         db_scan_CleanGrains(radius, minPoints)
 
-    radius = 4
-    minPoints = 30
-    iterations = 10
-    for i in range(0, iterations):
-        db_scan_CleanGrains(radius, minPoints)
+    # radius = 4
+    # minPoints = 32
+    # iterations = 3
+    # for i in range(0, iterations):
+    #     db_scan_CleanGrains(radius, minPoints)
+
+    # ///////////////////////////////////////////// get middle grains of each spike ///////////////////////////////
+
+    def selectpixels(midvertical, midhorizontal, radius, image):
+        numberofpoints = 0
+        minimumpoints = 2000
+        expansionstep = 5
+        SWIRSegmented = image
+        for r in range(-radius, radius):
+            for c in range(-radius, radius):
+                if SWIRSegmented[midvertical + r, midhorizontal + c] > 0:
+                    numberofpoints = numberofpoints + 1
+                    SWIRSegmented[midvertical + r, midhorizontal + c] = 255
+        for r in range(0, 25):
+            if numberofpoints < minimumpoints and radius < 154:
+                radius = radius + expansionstep
+                numberofpoints = 0
+                for r in range(-radius, radius):
+                    for c in range(-radius, radius):
+                        if SWIRSegmented[midvertical + r, midhorizontal + c] > 0:
+                            numberofpoints = numberofpoints + 1
+                            SWIRSegmented[midvertical + r, midhorizontal + c] = 255
+
+        # print(radius)
+        # print(numberofpoints)
+
+    selectpixels(525, 160, 30, SWIRSegmented)
 
 
+    # //////////////////////////////////////////// export data as image or excel file //////////////////////////////
     # export an excel file of the segmented data
-    # np.savetxt("../../SegmentedImages/" + imageType + "/" + imageName + '.csv', segmented, delimiter=',')
-
-    """
-    creating a 2d image using opencv library
-    """
-    cv2.imwrite("../../SegmentedImages/" + imageType + "/" + imageName + ".png", segmented)
+    # np.savetxt("../../SegmentedImages/" + imageType + "/" + imageName + '.csv', SWIRdataset, delimiter=',')
+    # np.savetxt("../../SegmentedImages/" + imageType + "/" + imageName + '1.csv', SWIRimage[:, :, 1], delimiter=',')
 
     print(str(images + 1) + " images of " + str(len(imagesArray)))
-
-# plt.plot(segmented)
-# plt.xlabel("rows")
-# plt.ylabel("columns")
-# plt.show()
-
-# time = [x for x in range(len(segmented[615, :]))]
-# plt.xlabel("rows")
-# plt.ylabel("columns")
-# plt.bar(segmented[615, :], time)
-# plt.show()
-#
-# plt.scatter(segmented[600, :], segmented[615, :])
-# plt.show()
